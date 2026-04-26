@@ -1,0 +1,33 @@
+{
+  "name": "foodie-map",
+  "version": "1.0.0",
+  "description": "The Foodie Map — A premium community food blog",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@tailwindcss/postcss": "4.2.4",
+    "autoprefixer": "10.5.0",
+    "framer-motion": "^12.7.4",
+    "lucide-react": "^0.511.0",
+    "next": "^15.3.1",
+    "postcss": "8.5.10",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "3.4.17",
+    "zustand": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "eslint": "^9.26.0",
+    "eslint-config-next": "^15.3.1",
+    "typescript": "^5.8.3"
+  }
+}
