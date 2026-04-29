@@ -7,7 +7,7 @@ import { CATEGORIES } from "@/types";
 
 export function CategoriesGrid() {
   return (
-    <section className="py-24 relative" id="categories">
+    <section className="py-24 relative overflow-hidden" id="categories">
       {/* Subtle background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-glow-moss opacity-30 pointer-events-none" />
 
