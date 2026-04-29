@@ -45,6 +45,8 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+import { Analytics } from "@vercel/analytics/react";
+
 export default function RootLayout({
   children,
 }: {
@@ -57,6 +59,7 @@ export default function RootLayout({
         <main className="min-h-screen">{children}</main>
         <Footer />
         <AuthModal />
+        <Analytics />
       </body>
     </html>
   );
