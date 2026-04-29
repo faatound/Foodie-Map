@@ -109,16 +109,28 @@ export function Header() {
             )}
           </div>
 
-          {/* Mobile hamburger */}
-          <button
-            className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center hover:bg-stone-100 transition-colors focus-ring"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            id="mobile-menu-toggle"
-          >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          {/* Mobile Actions & Hamburger */}
+          <div className="flex md:hidden items-center gap-2">
+            {user && (
+              <Link href="/profile" className="flex items-center p-1">
+                <Avatar
+                  src={user.user_metadata?.avatar_url}
+                  alt={user.user_metadata?.full_name || "User"}
+                  size="sm"
+                  className="shadow-sm border border-stone-100"
+                />
+              </Link>
+            )}
+            <button
+              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-stone-100 transition-colors focus-ring"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              id="mobile-menu-toggle"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
       </header>
 
