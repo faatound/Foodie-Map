@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, MapPin, Plus, User, LogOut, ChefHat } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
+import { Avatar } from "@/components/atoms/Avatar";
 import { useStore } from "@/store/useStore";
 
 const NAV_LINKS = [
@@ -79,10 +80,13 @@ export function Header() {
                     Ajouter
                   </Button>
                 </Link>
-                <Link href="/profile">
-                  <button className="w-9 h-9 rounded-full bg-gradient-to-br from-moss-400 to-moss-600 text-white flex items-center justify-center font-semibold text-sm hover:shadow-glow-moss transition-shadow focus-ring">
-                    {user.email?.[0]?.toUpperCase() || "U"}
-                  </button>
+                <Link href="/profile" className="flex items-center">
+                  <Avatar
+                    src={user.user_metadata?.avatar_url}
+                    alt={user.user_metadata?.full_name || "User"}
+                    size="sm"
+                    className="hover:shadow-glow-moss transition-shadow cursor-pointer"
+                  />
                 </Link>
               </>
             ) : (

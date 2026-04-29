@@ -13,6 +13,9 @@ export interface Location {
   created_by: string | null;
   avg_rating: number | null;
   hero_image: string | null;
+  image_url?: string | null; // Support pour la nouvelle colonne Supabase
+  price_range?: number | null; // 1: Economique, 2: Moyen, 3: Luxe
+  images?: string[]; // Ajout des photos uploadées
   created_at: string;
   // Joined fields
   profiles?: Profile;
@@ -25,6 +28,8 @@ export interface Profile {
   username: string | null;
   avatar_url: string | null;
   bio: string | null;
+  is_certified?: boolean;
+  total_restaurants?: number;
   created_at: string;
 }
 
@@ -33,7 +38,11 @@ export interface Review {
   location_id: string;
   user_id: string;
   rating: number;
+  rating_service?: number;
+  rating_decor?: number;
+  rating_food?: number;
   body: string | null;
+  photos?: string[];
   created_at: string;
   profiles?: Profile;
 }
@@ -74,8 +83,7 @@ export const CATEGORIES: Category[] = [
     emoji: "🍽️",
     color: "#2d5a29",
     gradient: "from-moss-600 to-moss-400",
-    image:
-      "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&q=80",
+    image: "/images/basilic.jpeg",
   },
   {
     slug: "bars",
@@ -84,8 +92,7 @@ export const CATEGORIES: Category[] = [
     emoji: "🍹",
     color: "#7c3aed",
     gradient: "from-purple-700 to-purple-400",
-    image:
-      "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200&q=80",
+    image: "/images/diamono.jpeg",
   },
   {
     slug: "patisserie",
@@ -94,8 +101,7 @@ export const CATEGORIES: Category[] = [
     emoji: "🥐",
     color: "#d97706",
     gradient: "from-amber-600 to-amber-400",
-    image:
-      "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=1200&q=80",
+    image: "/images/helena1.jpeg",
   },
   {
     slug: "fast-food",
@@ -114,8 +120,7 @@ export const CATEGORIES: Category[] = [
     emoji: "🌊",
     color: "#0369a1",
     gradient: "from-sky-700 to-sky-400",
-    image:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80",
+    image: "/images/TerrouBi.jpeg",
   },
   {
     slug: "hotels",
@@ -124,101 +129,247 @@ export const CATEGORIES: Category[] = [
     emoji: "🏨",
     color: "#854d0e",
     gradient: "from-amber-800 to-amber-600",
-    image:
-      "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1200&q=80",
+    image: "/images/africaqueen.jpeg",
   },
 ];
 
-// Mock featured locations for static rendering
 export const MOCK_LOCATIONS: Location[] = [
   {
     id: "1",
-    name: "Le Terrou Bi - Le Gastronomique",
-    address: "Bd Martin Luther King, Dakar",
+    name: "Phare des Mamelles",
+    address: "Ouakam, Dakar",
     category: "restaurants",
-    description:
-      "La haute gastronomie à son apogée avec une vue panoramique sur l'océan Atlantique.",
-    lat: 14.6867,
-    lng: -17.4619,
+    description: "Une vue imprenable sur tout Dakar avec une cuisine raffinée.",
+    lat: 14.723,
+    lng: -17.512,
     created_by: null,
-    avg_rating: 4.9,
-    hero_image:
-      "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&q=80",
+    avg_rating: 4.8,
+    hero_image: "/images/phare.jpeg",
+    price_range: 3,
     created_at: new Date().toISOString(),
   },
   {
     id: "2",
-    name: "Diamono Hi-Fi Bar",
-    address: "Terrou-Bi Resort, Dakar",
-    category: "bars",
-    description:
-      "Un salon d'écoute hi-fi haut de gamme avec des cocktails artisanaux et une ambiance de classe mondiale.",
-    lat: 14.6867,
-    lng: -17.4619,
+    name: "Piazza",
+    address: "Plateau, Dakar",
+    category: "restaurants",
+    description: "L'authenticité italienne au cœur de Dakar.",
+    lat: 14.667,
+    lng: -17.433,
     created_by: null,
-    avg_rating: 4.8,
-    hero_image:
-      "https://images.unsplash.com/photo-1574096079513-d8259312b785?w=1200&q=80",
+    avg_rating: 4.7,
+    hero_image: "/images/piazza.jpeg",
+    price_range: 2,
     created_at: new Date().toISOString(),
   },
   {
     id: "3",
-    name: "Praline Dakar",
-    address: "Almadies, Dakar",
-    category: "patisserie",
-    description:
-      "Pâtisserie française authentique offrant les meilleurs croissants et viennoiseries du Sénégal.",
-    lat: 14.7483,
-    lng: -17.5147,
+    name: "Mims",
+    address: "Corniche Ouest, Dakar",
+    category: "restaurants",
+    description: "Cuisine généreuse et cadre moderne pour vos déjeuners.",
+    lat: 14.712,
+    lng: -17.456,
     created_by: null,
-    avg_rating: 4.7,
-    hero_image:
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1200&q=80",
+    avg_rating: 4.6,
+    hero_image: "/images/mims2.jpeg",
+    price_range: 1,
     created_at: new Date().toISOString(),
   },
   {
     id: "4",
-    name: "Chicken Street Dakar",
-    address: "Rue 6, Dakar",
-    category: "fast-food",
-    description:
-      "Célèbre pour ses naans au fromage et son poulet frit parfaitement assaisonné.",
-    lat: 14.6937,
-    lng: -17.4441,
+    name: "Kotao",
+    address: "Almadies, Dakar",
+    category: "restaurants",
+    description: "L'Asie dans votre assiette avec une touche dakaroise.",
+    lat: 14.748,
+    lng: -17.514,
     created_by: null,
-    avg_rating: 4.5,
-    hero_image:
-      "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=1200&q=80",
+    avg_rating: 4.9,
+    hero_image: "/images/kotao.jpeg",
+    price_range: 2,
     created_at: new Date().toISOString(),
   },
   {
     id: "5",
-    name: "Le Basilic Dakar",
-    address: "Rue de cap vert, Dakar",
-    category: "seaside",
-    description:
-      "Célèbre pour ses spécialités françaises et africaines dans un cadre verdoyant.",
-    lat: 14.6937,
-    lng: -17.4441,
+    name: "Farid",
+    address: "Plateau, Dakar",
+    category: "restaurants",
+    description: "Spécialités libanaises raffinées depuis des décennies.",
+    lat: 14.669,
+    lng: -17.435,
     created_by: null,
-    avg_rating: 4.9,
-    hero_image:
-      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=80",
+    avg_rating: 4.8,
+    hero_image: "/images/farid.jpeg",
+    price_range: 2,
     created_at: new Date().toISOString(),
   },
   {
     id: "6",
-    name: "Africa Queen Resort",
-    address: "Somone, Senegal",
-    category: "hotels",
-    description:
-      "Dîner élégant en complexe hôtelier avec jardins tropicaux et service au bord de la piscine.",
-    lat: 14.4842,
-    lng: -17.0792,
+    name: "Groov",
+    address: "Almadies, Dakar",
+    category: "bars",
+    description: "Ambiance lounge et cocktails signatures.",
+    lat: 14.745,
+    lng: -17.512,
+    created_by: null,
+    avg_rating: 4.7,
+    hero_image: "/images/groov.jpeg",
+    price_range: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "7",
+    name: "Diamono",
+    address: "Dakar, Sénégal",
+    category: "bars",
+    description: "Le bar-resto traditionnel pour une soirée authentique.",
+    lat: 14.710,
+    lng: -17.448,
+    created_by: null,
+    avg_rating: 4.5,
+    hero_image: "/images/diamono.jpeg",
+    price_range: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "8",
+    name: "Meraki",
+    address: "Plateau, Dakar",
+    category: "patisserie",
+    description: "Le temple du café et de la pâtisserie fine.",
+    lat: 14.665,
+    lng: -17.431,
+    created_by: null,
+    avg_rating: 4.9,
+    hero_image: "/images/meraki.jpeg",
+    price_range: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "9",
+    name: "Praline",
+    address: "Point E, Dakar",
+    category: "patisserie",
+    description: "Des chocolats et douceurs d'exception.",
+    lat: 14.692,
+    lng: -17.452,
     created_by: null,
     avg_rating: 4.8,
-    hero_image:
-      "https://images.unsplash.com/photo-1455587734955-081b22074882?w=1200&q=80",
+    hero_image: "/images/praline.jpeg",
+    price_range: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "10",
+    name: "Sarayi",
+    address: "Mermoz, Dakar",
+    category: "patisserie",
+    description: "Brunch et pâtisserie turque incomparable.",
+    lat: 14.704,
+    lng: -17.468,
+    created_by: null,
+    avg_rating: 4.8,
+    hero_image: "/images/sarayi.jpeg",
+    price_range: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "11",
+    name: "Keurgui",
+    address: "Dakar, Sénégal",
+    category: "patisserie",
+    description: "Le goût authentique du pain chaud et des viennoiseries.",
+    lat: 14.725,
+    lng: -17.442,
+    created_by: null,
+    avg_rating: 4.7,
+    hero_image: "/images/keurgui.jpeg",
+    price_range: 2,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "12",
+    name: "Basilic",
+    address: "Corniche, Dakar",
+    category: "seaside",
+    description: "Cuisine fraîcheur les pieds dans l'eau.",
+    lat: 14.685,
+    lng: -17.462,
+    created_by: null,
+    avg_rating: 4.6,
+    hero_image: "/images/basilic.jpeg",
+    price_range: 2,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "13",
+    name: "Terrou-Bi",
+    address: "Corniche Ouest, Dakar",
+    category: "seaside",
+    description: "L'excellence du luxe en bord de mer.",
+    lat: 14.682,
+    lng: -17.465,
+    created_by: null,
+    avg_rating: 4.9,
+    hero_image: "/images/TerrouBi.jpeg",
+    price_range: 3,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "14",
+    name: "Africa Queen Buffet",
+    address: "Somone, Sénégal",
+    category: "hotels",
+    description: "Buffet panoramique face à l'océan.",
+    lat: 14.483,
+    lng: -17.108,
+    created_by: null,
+    avg_rating: 4.7,
+    hero_image: "/images/africaqueenbuffet.jpeg",
+    price_range: 2,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "15",
+    name: "Oasis",
+    address: "Corniche des Almadies, Dakar",
+    category: "restaurants",
+    description: "Un cadre idyllique sur la corniche avec une vue imprenable sur l'océan. Idéal pour un moment de détente super beau.",
+    lat: 14.750,
+    lng: -17.518,
+    created_by: null,
+    avg_rating: 4.8,
+    hero_image: "Oasis.jpeg",
+    price_range: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "16",
+    name: "H&Co",
+    address: "55 Bd de St louis, Dakar",
+    category: "patisserie",
+    description: "L'excellence de la pâtisserie et du café au cœur de Dakar.",
+    lat: 14.675,
+    lng: -17.438,
+    created_by: null,
+    avg_rating: 4.9,
+    hero_image: "h&co1.jpeg",
+    price_range: 1,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "17",
+    name: "Dakytori",
+    address: "4 boulevard El Hadj Djily Mbaye, Dakar",
+    category: "restaurants",
+    description: "Une expérience culinaire unique au cœur de Dakar, alliant tradition et modernité.",
+    lat: 14.671,
+    lng: -17.432,
+    created_by: null,
+    avg_rating: 4.7,
+    hero_image: "dakytory1.jpeg",
+    price_range: 2,
     created_at: new Date().toISOString(),
   },
 ];

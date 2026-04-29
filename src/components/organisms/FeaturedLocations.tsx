@@ -1,14 +1,65 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, ArrowRight } from "lucide-react";
+import { TrendingUp, ChevronRight, Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { LocationCard } from "@/components/molecules/LocationCard";
-import { MOCK_LOCATIONS } from "@/types";
 import { Button } from "@/components/atoms/Button";
+import { supabase } from "@/lib/supabase";
+import { Location } from "@/types";
 
 export function FeaturedLocations() {
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(6);
+
+        if (error) {
+          console.error("Erreur Supabase détaillée:", error.message, error.details, error.hint);
+          throw error;
+        }
+        if (data) {
+          // Déduplication par nom : on ne garde que le premier (le plus récent) pour chaque nom
+          const uniqueLocations: Location[] = [];
+          const seenNames = new Set();
+          
+          data.forEach((loc: any) => {
+            const nameKey = loc.name.toLowerCase().trim();
+            if (!seenNames.has(nameKey)) {
+              seenNames.add(nameKey);
+              uniqueLocations.push(loc as Location);
+            }
+          });
+          
+          setLocations(uniqueLocations);
+        }
+      } catch (err: any) {
+        console.error("Erreur récupération lieux:", err.message || err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLocations();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="w-10 h-10 text-moss-500 animate-spin" />
+        <p className="text-stone-400 font-medium animate-pulse">Chargement des pépites...</p>
+      </div>
+    );
+  }
+
   return (
     <section className="py-24 bg-cream-100 relative overflow-hidden" id="featured">
       {/* Background decoration */}
@@ -52,8 +103,8 @@ export function FeaturedLocations() {
 
         {/* Cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_LOCATIONS.map((loc, i) => (
-            <LocationCard key={loc.id} location={loc} index={i} />
+          {locations.map((loc) => (
+            <LocationCard key={loc.id} location={loc} />
           ))}
         </div>
 

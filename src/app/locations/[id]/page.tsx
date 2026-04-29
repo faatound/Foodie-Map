@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -14,288 +14,500 @@ import {
   Share2,
   Camera,
   ExternalLink,
+  Utensils,
+  User,
+  Layout,
+  MessageSquare,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
 import { StarRating } from "@/components/atoms/StarRating";
-import { MOCK_LOCATIONS, CATEGORIES } from "@/types";
+import { supabase } from "@/lib/supabase";
+import { Location, CATEGORIES, Review } from "@/types";
 import { useStore } from "@/store/useStore";
+
+// Les avis sont maintenant récupérés dynamiquement depuis la base de données.
+const MOCK_REVIEWS: any[] = [];
 
 export default function LocationDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { user, toggleSaved, isSaved, openAuthModal } = useStore();
 
-  const location = MOCK_LOCATIONS.find((l) => l.id === id);
-  const category = CATEGORIES.find((c) => c.slug === location?.category);
+  const [location, setLocation] = React.useState<Location | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [uploadingReview, setUploadingReview] = useState(false);
+  const reviewFilesRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        setLoading(true);
+        // Try Supabase first
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (data) {
+          setLocation(data as Location);
+          return;
+        }
+
+        // Fallback to MOCK_LOCATIONS if not found in DB
+        const { MOCK_LOCATIONS } = await import("@/types");
+        const mockLoc = MOCK_LOCATIONS.find((l) => l.id === id);
+        if (mockLoc) {
+          setLocation(mockLoc);
+        }
+      } catch (error) {
+        console.warn("Lieu non trouvé dans Supabase, tentative avec les mocks...");
+        const { MOCK_LOCATIONS } = await import("@/types");
+        const mockLoc = MOCK_LOCATIONS.find((l) => l.id === id);
+        if (mockLoc) {
+          setLocation(mockLoc);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLocation();
+  }, [id]);
+
+  const handleReviewPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!event.target.files || event.target.files.length === 0) return;
+      if (!user || !location) return;
+
+      setUploadingReview(true);
+      const files = Array.from(event.target.files);
+      const { uploadReviewPhoto } = await import("@/lib/storage");
+
+      const uploadPromises = files.map(file => uploadReviewPhoto(location.id, user.id, file));
+      const urls = await Promise.all(uploadPromises);
+
+      const primaryImage = urls[0];
+      const allImages = [...(Array.isArray(location.images) ? location.images : []), ...urls];
+
+      const { error: updateError } = await supabase
+        .from("locations")
+        .update({
+          images: allImages,       // Pour la galerie
+          image_url: primaryImage  // CRUCIAL : Pour l'affichage sur la LocationCard
+        })
+        .eq("id", location.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Mise à jour du state local pour refléter les deux colonnes
+      setLocation(prev => prev ? {
+        ...prev,
+        images: allImages,
+        image_url: primaryImage
+      } : null);
+
+      alert(`${urls.length} photo(s) ajoutée(s) !`);
+
+    } catch (error: any) {
+      alert("Erreur : " + error.message);
+    } finally {
+      setUploadingReview(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center pt-24 bg-stone-50 gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-moss-500 border-t-transparent" />
+        <p className="text-stone-500 font-medium">Chargement du lieu...</p>
+      </div>
+    );
+  }
 
   if (!location) {
     return (
-      <div className="min-h-screen flex items-center justify-center pt-24">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-stone-900 mb-4">Location not found</h1>
+      <div className="min-h-screen flex items-center justify-center pt-24 bg-stone-50">
+        <div className="text-center card-base p-10 max-w-sm">
+          <h1 className="text-2xl font-bold text-stone-900 mb-4">Lieu non trouvé</h1>
           <Link href="/">
-            <Button variant="primary">Back to Home</Button>
+            <Button variant="primary" className="w-full">Retour à l'accueil</Button>
           </Link>
         </div>
       </div>
     );
   }
 
+  const category = CATEGORIES.find((c) => c.slug === location.category);
   const saved = isSaved(location.id);
 
-  // Gallery images
-  const images = [
-    location.hero_image!,
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=70",
-    "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=600&q=70",
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=70",
-  ];
+  // Gallery images logic: combine hero and gallery images
+  const galleryImages = [
+    location.image_url,
+    location.hero_image,
+    ...(location.images || [])
+  ]
+    .filter(img => img && typeof img === 'string' && img.length > 5)
+    .map(img => (img as string).trim().replace(/^["']|["']$/g, '')) as string[];
+
+  const displayImages = [...galleryImages];
 
   return (
-    <div className="min-h-screen pt-20">
-      {/* Image Gallery */}
+    <div className="min-h-screen pt-20 bg-stone-50/30">
+      {/* Header Navigation */}
       <div className="container-xl py-6">
         <Link
           href={`/categories/${location.category}`}
-          className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-moss-600 transition-colors mb-4 focus-ring"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-moss-600 transition-colors mb-4 group"
         >
-          <ArrowLeft size={14} />
-          Back to {category?.label || "category"}
+          <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
+          Retour aux {category?.label || "catégories"}
         </Link>
 
         {/* Gallery Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-3xl overflow-hidden h-[300px] sm:h-[400px] md:h-[450px]">
-          <div className="md:col-span-2 md:row-span-2 relative group">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-[2.5rem] overflow-hidden h-[350px] sm:h-[450px] md:h-[500px] shadow-card">
+          <div className="md:col-span-2 md:row-span-2 relative group cursor-pointer bg-stone-100 flex items-center justify-center">
             <Image
-              src={images[0]}
+              src={
+                (displayImages[0] && typeof displayImages[0] === 'string')
+                  ? (displayImages[0].startsWith('http') ? displayImages[0] : `/images/${displayImages[0].replace(/^\/?(images\/)?/, '')}`)
+                  : "/images/placeholder.jpg"
+              }
               alt={location.name}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-700"
+              className="object-cover group-hover:scale-105 transition-transform duration-1000"
               priority
+              unoptimized
             />
-            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-500" />
+            <div className="absolute bottom-6 left-6 z-10 sm:hidden">
+              <Badge variant="solid" color="rgba(0,0,0,0.5)" className="backdrop-blur-md border-none text-white">Visualiser les photos</Badge>
+            </div>
           </div>
-          {images.slice(1).map((img, i) => (
-            <div key={i} className="relative hidden md:block group overflow-hidden">
+          {displayImages.slice(1, 4).map((img, i) => (
+            <div key={i} className="relative hidden md:block group overflow-hidden cursor-pointer">
               <Image
-                src={img}
+                src={img.startsWith('http') ? img : `/images/${img.replace(/^\/?(images\/)?/, '')}`}
                 alt={`${location.name} photo ${i + 2}`}
                 fill
-                className="object-cover group-hover:scale-110 transition-transform duration-700"
+                className="object-cover group-hover:scale-110 transition-transform duration-1000"
+                unoptimized
               />
+              <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
             </div>
           ))}
         </div>
       </div>
 
-      {/* Content */}
+      {/* Main Content Area */}
       <div className="container-xl py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* Main content */}
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          {/* Left Column: Info & Reviews */}
+          <div className="lg:col-span-2 space-y-12">
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6 }}
             >
-              {/* Category badge */}
-              {category && (
-                <Badge color={category.color} variant="soft" className="mb-3">
-                  {category.emoji} {category.label}
-                </Badge>
-              )}
-
-              <h1 className="font-display font-bold text-3xl sm:text-4xl text-stone-900 tracking-tight mb-3">
-                {location.name}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-4 text-sm text-stone-500 mb-6">
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={14} className="text-stone-400" />
-                  {location.address}
-                </span>
-                {location.avg_rating && (
-                  <span className="flex items-center gap-1.5">
-                    <Star size={14} className="text-amber-400 fill-amber-400" />
-                    <strong className="text-stone-800">{location.avg_rating.toFixed(1)}</strong>
-                    / 5
-                  </span>
+              {/* Info Header */}
+              <div className="space-y-4">
+                {category && (
+                  <Badge color={category.color} variant="soft" className="px-3 py-1 text-xs uppercase font-bold tracking-widest">
+                    {category.emoji} {category.label}
+                  </Badge>
                 )}
-                <span className="flex items-center gap-1.5">
-                  <Clock size={14} className="text-stone-400" />
-                  Open now
-                </span>
+
+                <h1 className="font-display font-extrabold text-4xl sm:text-5xl text-stone-900 tracking-tight leading-tight">
+                  {location.name}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-6 text-sm text-stone-500">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={16} className="text-moss-500" />
+                    <span className="font-medium">{location.address}</span>
+                  </div>
+                  {location.avg_rating && (
+                    <div className="flex items-center gap-2 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                      <StarRating rating={location.avg_rating} size={15} />
+                      <span className="text-stone-400">({location.reviews?.length || 0} avis)</span>
+                      {location.price_range && (
+                        <>
+                          <span className="mx-1 text-amber-200">|</span>
+                          <span className="text-amber-600 font-bold">{"$".repeat(location.price_range)}</span>
+                          <span className="text-[10px] ml-1 font-bold text-amber-600 uppercase">
+                            ({location.price_range === 1 ? "< 10k FCFA" : location.price_range === 2 ? "10k-15k FCFA" : "15k-30k+ FCFA"})
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-moss-600 font-bold">
+                    <Clock size={16} />
+                    Ouvert actuellement
+                  </div>
+                </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-3 mb-8">
+              {/* Action Toolbar */}
+              <div className="flex flex-wrap gap-4 mt-10 border-b border-stone-100 pb-10">
                 <Button
                   variant={saved ? "primary" : "secondary"}
-                  size="sm"
-                  icon={
-                    <Heart
-                      size={15}
-                      className={saved ? "fill-white" : ""}
-                    />
-                  }
+                  size="md"
+                  className="rounded-2xl h-12 px-6"
+                  icon={<Heart size={18} className={saved ? "fill-white" : ""} />}
                   onClick={() => toggleSaved(location.id)}
                 >
-                  {saved ? "Saved" : "Save"}
+                  {saved ? "Enregistré" : "Enregistrer"}
                 </Button>
-                <Button variant="secondary" size="sm" icon={<Share2 size={15} />}>
-                  Share
+                <Button variant="secondary" size="md" className="rounded-2xl h-12" icon={<Share2 size={18} />}>
+                  Partager
                 </Button>
-                {user && (
-                  <Button variant="amber" size="sm" icon={<Camera size={15} />}>
-                    Add Photos
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<ExternalLink size={15} />}
-                >
-                  Directions
+                <Button variant="secondary" size="md" className="rounded-2xl h-12" icon={<ExternalLink size={18} />}>
+                  Itinéraire
                 </Button>
               </div>
 
-              {/* Description */}
-              <div className="prose prose-stone max-w-none">
-                <h2 className="font-display font-bold text-xl text-stone-900 mb-3">
-                  About this place
-                </h2>
-                <p className="text-stone-600 leading-relaxed">
-                  {location.description}
-                </p>
-                <p className="text-stone-600 leading-relaxed mt-3">
-                  This cherished location has earned a reputation among locals and travelers
-                  alike for its outstanding culinary offerings, warm atmosphere, and
-                  dedication to quality. Whether you&apos;re stopping by for a quick bite or
-                  settling in for a leisurely meal, every visit promises something memorable.
-                </p>
-              </div>
-
-              {/* Reviews section */}
-              <div className="mt-12">
-                <h2 className="font-display font-bold text-xl text-stone-900 mb-6">
-                  Community Reviews
-                </h2>
-
-                {/* Sample review */}
-                <div className="space-y-4">
-                  {[
-                    {
-                      name: "Sarah M.",
-                      rating: 5,
-                      date: "2 days ago",
-                      body: "Absolutely incredible! The ambiance was perfect and the food was out of this world. Highly recommend the chef's special.",
-                    },
-                    {
-                      name: "Marcus L.",
-                      rating: 4,
-                      date: "1 week ago",
-                      body: "Great experience overall. The menu was creative and the service was top-notch. Will definitely be coming back.",
-                    },
-                  ].map((review, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 + i * 0.1 }}
-                      className="card-base p-5"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-semibold text-stone-900 text-sm">{review.name}</p>
-                          <p className="text-xs text-stone-400">{review.date}</p>
-                        </div>
-                        <StarRating rating={review.rating} size={14} />
-                      </div>
-                      <p className="text-sm text-stone-600 leading-relaxed">{review.body}</p>
-                    </motion.div>
-                  ))}
+              {/* Description Section */}
+              <div className="mt-12 space-y-6">
+                <h2 className="font-display font-bold text-2xl text-stone-900">À propos de ce lieu</h2>
+                <div className="prose prose-stone max-w-none text-stone-600 leading-relaxed space-y-4">
+                  <p className="text-lg">{location.description || "Aucune description détaillée pour le moment."}</p>
                 </div>
+              </div>
 
-                {/* Write review CTA */}
-                <div className="mt-6">
+              {/* Detailed Reviews Section */}
+              <div className="mt-20 space-y-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display font-bold text-2xl text-stone-900">Avis de la communauté</h2>
                   {user ? (
-                    <Button variant="secondary" icon={<Star size={15} />}>
-                      Write a Review
+                    <Button variant="primary" size="sm" icon={<MessageSquare size={16} />} onClick={() => setShowReviewForm(true)}>
+                      Donner mon avis
                     </Button>
                   ) : (
-                    <Button
-                      variant="secondary"
-                      onClick={() => openAuthModal("login")}
-                    >
-                      Log in to write a review
+                    <Button variant="ghost" size="sm" onClick={() => openAuthModal("login")}>
+                      Connectez-vous pour noter
                     </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {location.reviews && location.reviews.length > 0 ? (
+                    location.reviews.map((review, i) => (
+                      <motion.div
+                        key={review.id}
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="card-base p-6 sm:p-8 space-y-6"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
+                              <User size={20} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-stone-900">{review.profiles?.username || "Utilisateur"}</p>
+                              <p className="text-xs text-stone-400 italic">{new Date(review.created_at).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-stone-400 uppercase tracking-tighter">Note globale</span>
+                            <div className="bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                              <StarRating rating={review.rating} size={14} className="!gap-0" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tri-Rating Display */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-4 border-y border-stone-50">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-stone-400">
+                              <Utensils size={12} className="text-moss-500" /> Cuisine
+                            </div>
+                            <StarRating rating={review.rating_food || review.rating} size={13} className="!gap-0" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-stone-400">
+                              <User size={12} className="text-amber-500" /> Service
+                            </div>
+                            <StarRating rating={review.rating_service || review.rating} size={13} className="!gap-0" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-stone-400">
+                              <Layout size={12} className="text-purple-500" /> Décor
+                            </div>
+                            <StarRating rating={review.rating_decor || review.rating} size={13} className="!gap-0" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] uppercase font-bold text-moss-600 tracking-widest block">Retour d'expérience</span>
+                          <p className="text-stone-700 leading-relaxed italic">
+                            "{review.body}"
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12 card-base bg-stone-50/50 border-dashed border-stone-200">
+                      <MessageSquare size={32} className="text-stone-300 mx-auto mb-3" />
+                      <p className="text-stone-500 font-medium">Aucun avis pour le moment</p>
+                      <p className="text-stone-400 text-sm">Soyez le premier à partager votre expérience !</p>
+                    </div>
                   )}
                 </div>
               </div>
             </motion.div>
           </div>
 
-          {/* Sidebar */}
+          {/* Right Column: Sidebar Info */}
           <div className="lg:col-span-1">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="sticky top-28 space-y-5"
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="sticky top-28 space-y-6"
             >
-              {/* Info card */}
-              <div className="card-base p-6">
-                <h3 className="font-display font-bold text-stone-900 text-base mb-4">
-                  Information
+              {/* Detailed Info Card */}
+              <div className="card-base p-8 space-y-8">
+                <h3 className="font-display font-bold text-xl text-stone-900 border-b border-stone-50 pb-4">
+                  Informations pratiques
                 </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-3">
-                    <MapPin size={16} className="text-stone-400 mt-0.5 flex-shrink-0" />
+
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-moss-50 flex items-center justify-center flex-shrink-0 text-moss-600">
+                      <MapPin size={20} />
+                    </div>
                     <div>
-                      <p className="font-medium text-stone-700">Address</p>
-                      <p className="text-stone-500">{location.address}</p>
+                      <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Localisation</p>
+                      <p className="text-stone-700 font-medium">{location.address}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <Clock size={16} className="text-stone-400 mt-0.5 flex-shrink-0" />
+
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 text-amber-600">
+                      <Clock size={20} />
+                    </div>
                     <div>
-                      <p className="font-medium text-stone-700">Hours</p>
-                      <p className="text-stone-500">Mon-Sun: 11:00 AM - 10:00 PM</p>
+                      <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Horaires</p>
+                      <p className="text-stone-700 font-medium">Lun-Dim: 11:30 — 00:00</p>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Map placeholder */}
-              <div className="card-base overflow-hidden">
-                <div className="h-48 bg-stone-100 flex items-center justify-center">
-                  <div className="text-center">
-                    <MapPin size={28} className="text-stone-300 mx-auto mb-2" />
-                    <p className="text-xs text-stone-400">Interactive map</p>
-                    <p className="text-xs text-stone-300">Coming soon</p>
-                  </div>
+                <div className="flex gap-3">
+                  <input
+                    type="file"
+                    id="sidebar-photo-upload"
+                    onChange={handleReviewPhotoUpload}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <Button
+                    variant="primary"
+                    className="w-full h-12 rounded-2xl"
+                    icon={uploadingReview ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Camera size={18} />}
+                    onClick={() => document.getElementById('sidebar-photo-upload')?.click()}
+                    disabled={uploadingReview}
+                  >
+                    {uploadingReview ? "Envoi..." : "Ajouter des photos"}
+                  </Button>
                 </div>
               </div>
 
-              {/* Share card */}
-              <div className="card-base p-5 glass">
-                <p className="text-sm font-medium text-stone-700 mb-3">Share this place</p>
-                <div className="flex gap-2">
-                  {["Twitter", "WhatsApp", "Copy Link"].map((label) => (
-                    <button
-                      key={label}
-                      className="flex-1 py-2 rounded-xl bg-stone-50 text-xs font-medium text-stone-600 hover:bg-stone-100 transition-colors focus-ring"
-                    >
-                      {label}
-                    </button>
-                  ))}
+              {/* Map Preview */}
+              <div className="card-base overflow-hidden relative h-64 group cursor-pointer shadow-soft hover:shadow-card transition-shadow">
+                <div className="absolute inset-0 bg-stone-100 flex items-center justify-center">
+                  <div className="text-center space-y-2 group-hover:scale-110 transition-transform duration-500">
+                    <MapPin size={32} className="text-stone-300 mx-auto" />
+                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Carte Interactive</p>
+                    <Badge variant="soft" color="#a8a29e" className="text-[10px]">Bientôt disponible</Badge>
+                  </div>
                 </div>
               </div>
             </motion.div>
           </div>
         </div>
       </div>
+
+      {/* Review Form Overlay (Mockup) */}
+      <AnimatePresence>
+        {showReviewForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReviewForm(false)}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl z-10"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-display font-bold text-2xl text-stone-900">Donner mon avis</h3>
+                <button onClick={() => setShowReviewForm(false)} className="p-2 hover:bg-stone-50 rounded-full transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Cuisine</label>
+                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Service</label>
+                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Décor</label>
+                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Votre retour d'expérience</label>
+                  <textarea
+                    className="input-base min-h-[120px] pt-4"
+                    placeholder="Racontez-nous votre visite..."
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <input
+                    type="file"
+                    ref={reviewFilesRef}
+                    onChange={handleReviewPhotoUpload}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <Button
+                    variant="secondary"
+                    className="flex-1 rounded-2xl"
+                    icon={uploadingReview ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-stone-400 border-t-transparent" /> : <Camera size={18} />}
+                    onClick={() => reviewFilesRef.current?.click()}
+                    disabled={uploadingReview}
+                  >
+                    {uploadingReview ? "Envoi..." : "Photos"}
+                  </Button>
+                  <Button variant="primary" className="flex-2 rounded-2xl px-10" onClick={() => setShowReviewForm(false)}>Publier l'avis</Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

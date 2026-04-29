@@ -32,11 +32,14 @@ export function Avatar({
       .slice(0, 2)
       .toUpperCase();
 
-  if (src) {
+  const [hasError, setHasError] = React.useState(false);
+
+  if (src && !hasError) {
     return (
       <img
         src={src}
         alt={alt}
+        onError={() => setHasError(true)}
         className={`${sizeMap[size]} rounded-full object-cover ring-2 ring-white shadow-soft ${className}`}
       />
     );
