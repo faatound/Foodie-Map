@@ -25,38 +25,55 @@ export function DiscoverFoodies() {
           });
         }
 
-        // Garder ceux qui ont 5 partages ou plus
-        const activeUserIds = Object.keys(counts).filter(id => counts[id] >= 5);
+        // Trier les IDs d'utilisateurs par nombre de partages (du plus actif au moins actif)
+        const sortedActiveUserIds = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
 
         let activeProfiles: any[] = [];
-        if (activeUserIds.length > 0) {
-          const { data } = await supabase.from('profiles').select('*').in('id', activeUserIds);
-          if (data) activeProfiles = data;
+        if (sortedActiveUserIds.length > 0) {
+          // Récupérer les profils de ceux qui ont partagé au moins 1 lieu
+          const { data } = await supabase.from('profiles').select('*').in('id', sortedActiveUserIds);
+          if (data) {
+            // Remettre dans l'ordre du tri
+            activeProfiles = data.sort((a, b) => {
+              return sortedActiveUserIds.indexOf(a.id) - sortedActiveUserIds.indexOf(b.id);
+            });
+          }
         }
 
-        // 2. Toujours inclure le profil de "faa" par défaut
+        // 2. Toujours inclure le profil de "faa" par défaut (ou s'il n'y a pas assez d'actifs, récupérer les derniers inscrits)
         const { data: faaProfiles } = await supabase
           .from('profiles')
           .select('*')
           .or('full_name.ilike.%faa%,username.ilike.%faa%')
           .limit(1);
 
-        // 3. Combiner et dédupliquer
+        const { data: recentProfiles } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(8);
+
+        // 3. Combiner et dédupliquer (Max 12 profils)
         const allFoodiesMap = new Map();
         
-        // Ajouter d'abord Faa (pour qu'elle soit en premier)
+        // Ajouter d'abord Faa (en premier)
         if (faaProfiles && faaProfiles.length > 0) {
           allFoodiesMap.set(faaProfiles[0].id, faaProfiles[0]);
         }
         
-        // Ajouter les autres foodies actifs
+        // Ajouter les foodies actifs
         activeProfiles.forEach(p => {
-          if (!allFoodiesMap.has(p.id)) {
-            allFoodiesMap.set(p.id, p);
-          }
+          if (!allFoodiesMap.has(p.id)) allFoodiesMap.set(p.id, p);
         });
 
-        setFoodies(Array.from(allFoodiesMap.values()));
+        // Compléter avec les récents s'il n'y a pas assez d'actifs
+        if (recentProfiles) {
+          recentProfiles.forEach(p => {
+            if (!allFoodiesMap.has(p.id)) allFoodiesMap.set(p.id, p);
+          });
+        }
+
+        setFoodies(Array.from(allFoodiesMap.values()).slice(0, 12));
       } catch (err) {
         console.error("Erreur récupération foodies:", err);
       }

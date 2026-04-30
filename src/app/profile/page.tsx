@@ -103,7 +103,7 @@ export default function ProfilePage() {
       if (dbError) throw dbError;
 
       // 2. Auth Session
-      const { error: authError } = await supabase.auth.updateUser({
+      const { data, error: authError } = await supabase.auth.updateUser({
         data: { 
           full_name: editData.full_name,
           username: editData.username.replace(/\s/g, '').toLowerCase()
@@ -111,9 +111,13 @@ export default function ProfilePage() {
       });
       if (authError) throw authError;
 
+      // Mettre à jour le store localement au lieu de recharger
+      if (data.user) {
+        useStore.getState().setUser(data.user);
+      }
+
       setIsEditing(false);
       alert("Profil mis à jour !");
-      window.location.reload();
     } catch (err: any) {
       alert("Erreur: " + err.message);
     } finally {
@@ -147,10 +151,14 @@ export default function ProfilePage() {
       const publicUrl = await uploadAvatar(user.id, croppedFile);
       
       await supabase.from('profiles').upsert({ id: user.id, avatar_url: publicUrl });
-      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      const { data } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      
+      // Mettre à jour le store localement
+      if (data.user) {
+        useStore.getState().setUser(data.user);
+      }
       
       setImageToCrop(null);
-      window.location.reload();
     } catch (err: any) {
       alert("Erreur: " + err.message);
     } finally {
