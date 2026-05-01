@@ -27,7 +27,7 @@ export default function CategoryPage() {
         // Fetch real locations from Supabase
         const { data, error } = await supabase
           .from("locations")
-          .select("*")
+          .select("*, profiles(full_name, username)")
           .eq("category", slug);
 
         let realLocations: Location[] = [];

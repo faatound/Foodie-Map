@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { MapPin, Heart, Star } from "lucide-react";
+import { MapPin, Heart, Star, User } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { CATEGORIES } from "@/types";
 import type { Location } from "@/types";
@@ -121,16 +121,34 @@ export function LocationCard({
             </p>
           )}
 
-          {/* Rating */}
-          {location.avg_rating && location.avg_rating > 0 && (
-            <div className="flex items-center gap-1 mt-auto pt-3 text-sm border-t border-stone-50">
-              <Star size={14} className="text-amber-400 fill-amber-400" />
-              <span className="font-semibold text-stone-700">
-                {location.avg_rating.toFixed(1)}
-              </span>
-              <span className="text-stone-400">/ 5</span>
-            </div>
-          )}
+          {/* Rating and Publisher */}
+          <div className="mt-auto pt-3 border-t border-stone-50 flex items-center justify-between text-sm">
+            {location.avg_rating && location.avg_rating > 0 ? (
+              <div className="flex items-center gap-1">
+                <Star size={14} className="text-amber-400 fill-amber-400" />
+                <span className="font-semibold text-stone-700">
+                  {location.avg_rating.toFixed(1)}
+                </span>
+                <span className="text-stone-400">/ 5</span>
+              </div>
+            ) : (
+              <div />
+            )}
+
+            {/* Publisher */}
+            {(() => {
+              const publisherName = location.profiles?.full_name || location.profiles?.username;
+              if (publisherName) {
+                return (
+                  <div className="flex items-center gap-1.5 text-xs text-stone-400 font-medium bg-stone-50 px-2 py-1 rounded-md">
+                    <User size={12} className="text-stone-400" />
+                    <span className="truncate max-w-[100px]">Par {publisherName.split(' ')[0]}</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </div>
       </Link>
     </motion.div>

@@ -48,7 +48,7 @@ export default function LocationDetailPage() {
         // Try Supabase first
         const { data, error } = await supabase
           .from("locations")
-          .select("*")
+          .select("*, profiles(full_name, username)")
           .eq("id", id)
           .single();
 
@@ -397,6 +397,25 @@ export default function LocationDetailPage() {
                       <p className="text-stone-700 font-medium">Lun-Dim: 11:30 — 00:00</p>
                     </div>
                   </div>
+
+                  {/* Publié par */}
+                  {(() => {
+                    const publisherName = location.profiles?.full_name || location.profiles?.username;
+                    if (publisherName) {
+                      return (
+                        <div className="flex items-start gap-4 pt-4 border-t border-stone-50">
+                          <div className="w-10 h-10 rounded-xl bg-stone-50 flex items-center justify-center flex-shrink-0 text-stone-400">
+                            <User size={20} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Publié par</p>
+                            <p className="text-moss-600 font-bold">{publisherName}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="flex gap-3">

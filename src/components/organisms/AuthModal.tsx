@@ -14,6 +14,7 @@ export function AuthModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +42,10 @@ export function AuthModal() {
           email,
           password,
           options: {
-            data: { full_name: name },
+            data: { 
+              full_name: name,
+              username: username.replace(/^@/, '') 
+            },
           },
         });
         if (err) throw err;
@@ -140,15 +144,26 @@ export function AuthModal() {
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {!isLogin && (
-                    <Input
-                      label="Nom complet"
-                      type="text"
-                      placeholder="Jean Dupont"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      icon={<User size={16} />}
-                      required
-                    />
+                    <>
+                      <Input
+                        label="Nom"
+                        type="text"
+                        placeholder="Jean"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        icon={<User size={16} />}
+                        required
+                      />
+                      <Input
+                        label="Identifiant (@)"
+                        type="text"
+                        placeholder="jean_d"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        icon={<User size={16} />}
+                        required
+                      />
+                    </>
                   )}
 
                   <Input

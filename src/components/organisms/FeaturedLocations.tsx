@@ -18,28 +18,34 @@ export function FeaturedLocations() {
       try {
         const { data, error } = await supabase
           .from("locations")
-          .select("*")
+          .select("*, profiles(full_name, username)")
           .order("created_at", { ascending: false })
-          .limit(6);
+          .limit(20); // On en prend plus pour pouvoir filtrer ceux sans photo
 
         if (error) {
           console.error("Erreur Supabase détaillée:", error.message, error.details, error.hint);
           throw error;
         }
         if (data) {
-          // Déduplication par nom : on ne garde que le premier (le plus récent) pour chaque nom
-          const uniqueLocations: Location[] = [];
+          // Filtrage par photo et déduplication par nom
+          const filteredLocations: Location[] = [];
           const seenNames = new Set();
           
           data.forEach((loc: any) => {
+            // Vérifier si une photo existe
+            const rawImg = loc.image_url || loc.hero_image || (loc.images && Array.isArray(loc.images) && loc.images.length > 0 ? loc.images[0] : null);
+            const hasImage = rawImg && typeof rawImg === 'string' && rawImg.length > 4;
+
+            if (!hasImage) return; // On ignore si pas de photo
+
             const nameKey = loc.name.toLowerCase().trim();
-            if (!seenNames.has(nameKey)) {
+            if (!seenNames.has(nameKey) && filteredLocations.length < 6) {
               seenNames.add(nameKey);
-              uniqueLocations.push(loc as Location);
+              filteredLocations.push(loc as Location);
             }
           });
           
-          setLocations(uniqueLocations);
+          setLocations(filteredLocations);
         }
       } catch (err: any) {
         console.error("Erreur récupération lieux:", err.message || err);

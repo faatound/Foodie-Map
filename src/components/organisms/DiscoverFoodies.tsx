@@ -47,12 +47,6 @@ export function DiscoverFoodies() {
           .or('full_name.ilike.%faa%,username.ilike.%faa%')
           .limit(1);
 
-        const { data: recentProfiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(8);
-
         // 3. Combiner et dédupliquer (Max 12 profils)
         const allFoodiesMap = new Map();
         
@@ -61,17 +55,15 @@ export function DiscoverFoodies() {
           allFoodiesMap.set(faaProfiles[0].id, faaProfiles[0]);
         }
         
-        // Ajouter les foodies actifs
+        // Ajouter les foodies actifs (ceux qui ont partagé au moins 1 lieu)
         activeProfiles.forEach(p => {
-          if (!allFoodiesMap.has(p.id)) allFoodiesMap.set(p.id, p);
+          // On n'exclut que si c'est EXACTEMENT le nom générique "Foodie Mystère"
+          const isMystery = p.full_name === "Foodie Mystère";
+                           
+          if (!isMystery && !allFoodiesMap.has(p.id)) {
+            allFoodiesMap.set(p.id, p);
+          }
         });
-
-        // Compléter avec les récents s'il n'y a pas assez d'actifs
-        if (recentProfiles) {
-          recentProfiles.forEach(p => {
-            if (!allFoodiesMap.has(p.id)) allFoodiesMap.set(p.id, p);
-          });
-        }
 
         setFoodies(Array.from(allFoodiesMap.values()).slice(0, 12));
       } catch (err) {
