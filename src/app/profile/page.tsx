@@ -80,7 +80,10 @@ export default function ProfilePage() {
           .order("created_at", { ascending: false });
         
         if (error) throw error;
-        setUserLocations(data || []);
+        
+        // Déduplication par ID pour éviter les doublons d'affichage
+        const uniqueData = data ? Array.from(new Map(data.map(item => [item.id, item])).values()) : [];
+        setUserLocations(uniqueData);
       } catch (err) {
         console.error("Erreur lieux profil:", err);
       } finally {
@@ -322,8 +325,8 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-center md:justify-start gap-3 mb-1">
-                    <h1 className="text-3xl font-bold text-stone-900">{displayName}</h1>
+                  <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                    <h1 className="text-2xl font-bold text-stone-900 tracking-tight">{displayName}</h1>
                     {isCertified && (
                       <span className="px-2 py-0.5 bg-moss-50 text-moss-700 text-[10px] font-black uppercase rounded-full border border-moss-200">
                         Certifié
