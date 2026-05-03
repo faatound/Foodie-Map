@@ -18,7 +18,7 @@ export function FeaturedLocations() {
       try {
         const { data, error } = await supabase
           .from("locations")
-          .select("*, profiles(full_name, username)")
+          .select("*")
           .order("rating", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(20); // On en prend plus pour pouvoir filtrer ceux sans photo

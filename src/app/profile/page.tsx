@@ -75,7 +75,7 @@ export default function ProfilePage() {
       try {
         const { data, error } = await supabase
           .from("locations")
-          .select("*, profiles(full_name, username)")
+          .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
         
@@ -105,7 +105,7 @@ export default function ProfilePage() {
         const ids = Array.from(savedIds);
         const { data, error } = await supabase
           .from("locations")
-          .select("*, profiles(full_name, username)")
+          .select("*")
           .in("id", ids);
         
         if (error) throw error;
@@ -227,7 +227,8 @@ export default function ProfilePage() {
       const { error, count } = await supabase
         .from("locations")
         .delete({ count: 'exact' })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
       
       if (error) throw error;
       
