@@ -120,7 +120,7 @@ export default function LocationDetailPage() {
         created_at: new Date().toISOString(),
         profiles: {
           username: user.user_metadata?.username || user.email?.split('@')[0] || "Moi"
-        }
+        } as any
       };
       
       setLocation(prev => prev ? {
