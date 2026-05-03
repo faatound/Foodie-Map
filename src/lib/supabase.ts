@@ -38,7 +38,7 @@ export type Database = {
           lat: number | null;
           lng: number | null;
           created_by: string | null;
-          avg_rating: number | null;
+          rating: number | null;
           hero_image: string | null;
           created_at: string;
         };

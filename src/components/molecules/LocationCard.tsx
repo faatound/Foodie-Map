@@ -34,11 +34,11 @@ export function LocationCard({
     >
       <Link
         href={`/locations/${location.id}`}
-        className="group block card-base overflow-hidden focus-ring"
+        className="group flex flex-col h-full card-base overflow-hidden focus-ring shadow-sm hover:shadow-md transition-shadow duration-300"
         id={`location-${location.id}`}
       >
         {/* Image */}
-        <div className="relative aspect-[16/10] overflow-hidden bg-stone-100 flex items-center justify-center">
+        <div className="relative aspect-[16/10] overflow-hidden bg-stone-100 flex-shrink-0">
           {(() => {
             // 1. Vérifie si une image existe dans la DB (plusieurs sources possibles)
             let rawImg = location.image_url || location.hero_image || (location.images && Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null);
@@ -51,9 +51,9 @@ export function LocationCard({
             // 2. Si pas d'image, affiche un placeholder gris ("Rien")
             if (!rawImg || typeof rawImg !== 'string' || rawImg.length < 5) {
               return (
-                <div className="text-center p-4">
-                  <MapPin size={24} className="text-stone-300 mx-auto mb-2" />
-                  <p className="text-xs text-stone-400 font-medium">Pas de photo pour ce spot</p>
+                <div className="flex flex-col items-center justify-center h-full w-full bg-stone-50 border-b border-stone-100">
+                  <MapPin size={24} className="text-stone-300 mb-2" />
+                  <p className="text-xs text-stone-400 font-medium px-4 text-center">Pas de photo pour ce spot</p>
                 </div>
               );
             }
@@ -74,7 +74,8 @@ export function LocationCard({
               />
             );
           })()}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
           {/* Save button */}
           <button
             onClick={(e) => {
@@ -82,7 +83,7 @@ export function LocationCard({
               e.stopPropagation();
               toggleSaved(location.id);
             }}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full glass flex items-center justify-center transition-all duration-300 hover:scale-110"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full glass flex items-center justify-center transition-all duration-300 hover:scale-110 z-10"
             aria-label={saved ? "Retirer des favoris" : "Enregistrer le lieu"}
           >
             <Heart
@@ -91,18 +92,22 @@ export function LocationCard({
                 }`}
             />
           </button>
-
         </div>
 
         {/* Content */}
-        <div className="p-5 flex flex-col flex-grow min-h-[160px]">
+        <div className="p-5 flex flex-col flex-grow">
           <div className="flex items-start justify-between mb-1">
-            <h3 className="font-display font-bold text-stone-900 text-lg tracking-tight group-hover:text-moss-500 transition-colors">
+            <h3 className="font-display font-bold text-stone-900 text-lg tracking-tight group-hover:text-moss-600 transition-colors leading-tight">
               {location.name}
             </h3>
+            {cat && (
+              <Badge color={cat.color} variant="soft" className="shrink-0 text-[10px] px-2 py-0.5">
+                {cat.emoji}
+              </Badge>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 mt-1.5 text-stone-500 text-sm">
+          <div className="flex items-center gap-1.5 mt-1 text-stone-500 text-sm">
             <MapPin size={13} className="text-stone-400 flex-shrink-0" />
             <span className="truncate">{location.address}</span>
             {location.price_range && (
@@ -115,19 +120,21 @@ export function LocationCard({
             )}
           </div>
 
-          {location.description && variant === "default" && (
-            <p className="mt-2.5 text-sm text-stone-500 line-clamp-2 leading-relaxed">
+          {location.description && variant === "default" ? (
+            <p className="mt-3 text-sm text-stone-500 line-clamp-2 leading-relaxed h-10 overflow-hidden">
               {location.description}
             </p>
+          ) : (
+            <div className="mt-3 h-10" /> // Spacer to keep alignment even if no description
           )}
 
           {/* Rating and Publisher */}
-          <div className="mt-auto pt-3 border-t border-stone-50 flex items-center justify-between text-sm">
-            {location.avg_rating && location.avg_rating > 0 ? (
+          <div className="mt-auto pt-4 border-t border-stone-50 flex items-center justify-between text-sm">
+            {location.rating && location.rating > 0 ? (
               <div className="flex items-center gap-1">
                 <Star size={14} className="text-amber-400 fill-amber-400" />
                 <span className="font-semibold text-stone-700">
-                  {location.avg_rating.toFixed(1)}
+                  {location.rating.toFixed(1)}
                 </span>
                 <span className="text-stone-400">/ 5</span>
               </div>

@@ -118,6 +118,14 @@ body::before {
     border-radius: 6px;
   }
 
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .animated-gradient {
     background: linear-gradient(-45deg, #1e3d1b, #2d5a29, #4a5a20, #5a3a10, #1e3d1b);
     background-size: 400% 400%;

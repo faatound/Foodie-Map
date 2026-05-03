@@ -55,16 +55,59 @@ export const useStore = create<Store>((set, get) => ({
 
   // ── Saved locations ───────────────────────────────────
   savedIds: new Set<string>(),
-  toggleSaved: (locationId) => {
+  
+  toggleSaved: async (locationId) => {
     const { savedIds, user } = get();
     if (!user) {
       get().openAuthModal("login");
       return;
     }
+
+    const isCurrentlySaved = savedIds.has(locationId);
     const next = new Set(savedIds);
-    if (next.has(locationId)) next.delete(locationId);
-    else next.add(locationId);
+    
+    if (isCurrentlySaved) {
+      next.delete(locationId);
+      // Persist to Supabase
+      await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('location_id', locationId);
+    } else {
+      next.add(locationId);
+      // Persist to Supabase
+      await supabase
+        .from('favorites')
+        .insert({ user_id: user.id, location_id: locationId });
+    }
+    
     set({ savedIds: next });
   },
+
   isSaved: (locationId) => get().savedIds.has(locationId),
+
+  // Initialiser les favoris
+  loadFavorites: async (userId: string) => {
+    const { data } = await supabase
+      .from('favorites')
+      .select('location_id')
+      .eq('user_id', userId);
+    
+    if (data) {
+      set({ savedIds: new Set(data.map(f => f.location_id)) });
+    }
+  },
 }));
+
+// Auto-load favorites when user changes
+useStore.subscribe(
+  (state) => state.user,
+  (user) => {
+    if (user) {
+      useStore.getState().loadFavorites(user.id);
+    } else {
+      useStore.getState().set({ savedIds: new Set() });
+    }
+  }
+);

@@ -11,7 +11,7 @@ export interface Location {
   lat: number | null;
   lng: number | null;
   created_by: string | null;
-  avg_rating: number | null;
+  rating: number | null;
   hero_image: string | null;
   image_url?: string | null; // Support pour la nouvelle colonne Supabase
   price_range?: number | null; // 1: Economique, 2: Moyen, 3: Luxe

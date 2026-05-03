@@ -28,17 +28,23 @@ import { supabase } from "@/lib/supabase";
 import Cropper from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
 
-type TabId = "reviews" | "places" | "favorites";
+type TabId = "places" | "favorites";
 
 export default function ProfilePage() {
-  const { user, openAuthModal, signOut } = useStore();
-  const [activeTab, setActiveTab] = useState<TabId>("reviews");
+  const { user, openAuthModal, signOut, savedIds } = useStore();
+  const [activeTab, setActiveTab] = useState<TabId>("places");
   const [uploading, setUploading] = useState(false);
   const [userLocations, setUserLocations] = useState<any[]>([]);
+  const [favoriteLocations, setFavoriteLocations] = useState<any[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // États pour l'édition
+  // États pour l'édition de description
+  const [editingLocId, setEditingLocId] = useState<string | null>(null);
+  const [tempDesc, setTempDesc] = useState("");
+
+  // États pour l'édition de profil
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     full_name: "",
@@ -61,7 +67,7 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  // Charger les lieux
+  // Charger les lieux de l'utilisateur
   useEffect(() => {
     const fetchUserLocations = async () => {
       if (!user) return;
@@ -69,7 +75,7 @@ export default function ProfilePage() {
       try {
         const { data, error } = await supabase
           .from("locations")
-          .select("*")
+          .select("*, profiles(full_name, username)")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
         
@@ -86,6 +92,55 @@ export default function ProfilePage() {
       fetchUserLocations();
     }
   }, [user, activeTab]);
+
+  // Charger les favoris
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      if (!user || savedIds.size === 0) {
+        setFavoriteLocations([]);
+        return;
+      }
+      setLoadingFavorites(true);
+      try {
+        const ids = Array.from(savedIds);
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*, profiles(full_name, username)")
+          .in("id", ids);
+        
+        if (error) throw error;
+        setFavoriteLocations(data || []);
+      } catch (err) {
+        console.error("Erreur favoris profil:", err);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    if (activeTab === "favorites") {
+      fetchFavorites();
+    }
+  }, [user, activeTab, savedIds]);
+
+  const handleUpdateDescription = async (id: string) => {
+    try {
+      setUploading(true);
+      const { error } = await supabase
+        .from("locations")
+        .update({ description: tempDesc })
+        .eq("id", id);
+      
+      if (error) throw error;
+      
+      setUserLocations(prev => prev.map(loc => loc.id === id ? { ...loc, description: tempDesc } : loc));
+      setEditingLocId(null);
+      alert("Description mise à jour !");
+    } catch (err: any) {
+      alert("Erreur: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -176,13 +231,12 @@ export default function ProfilePage() {
       
       if (error) throw error;
       
-      // Si count est 0, c'est que les politiques RLS bloquent la suppression
       if (count === 0) {
-        throw new Error("Vous n'avez pas la permission de supprimer ce lieu (Vérifiez vos politiques RLS).");
+        throw new Error("Vous n'avez pas la permission de supprimer ce lieu.");
       }
 
       setUserLocations(prev => prev.filter(loc => loc.id !== id));
-      alert("Lieu supprimé définitivement !");
+      alert("Lieu supprimé !");
     } catch (err: any) {
       alert("Erreur: " + err.message);
     }
@@ -212,24 +266,17 @@ export default function ProfilePage() {
     );
   }
 
-  // Certification basée sur la base de données (colonne is_certified dans profiles)
   const isCertified = profile?.is_certified || false;
-
   const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || "Foodie";
-  const displayHandle = user.user_metadata?.username || handleName(displayName);
-
-  function handleName(name: string) {
-    return name.toLowerCase().replace(/\s/g, '');
-  }
+  const displayHandle = user.user_metadata?.username || displayName.toLowerCase().replace(/\s/g, '');
 
   return (
     <div className="min-h-screen bg-stone-50 pt-32 pb-20">
       <div className="max-w-4xl mx-auto px-4">
         
-        {/* En-tête avec édition */}
+        {/* En-tête */}
         <div className="bg-white rounded-3xl p-8 mb-8 shadow-sm border border-stone-100">
           <div className="flex flex-col md:flex-row items-center gap-8">
-            {/* Avatar */}
             <div className="relative group">
               <div className={`w-32 h-32 rounded-3xl overflow-hidden border-4 border-white shadow-md ${uploading ? 'opacity-50' : ''}`}>
                 <Avatar src={user.user_metadata?.avatar_url} className="w-full h-full rounded-none" alt={displayName} />
@@ -248,7 +295,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Infos / Formulaire d'édition */}
             <div className="text-center md:text-left flex-1">
               {isEditing ? (
                 <div className="space-y-4 max-w-sm mx-auto md:mx-0">
@@ -302,7 +348,6 @@ export default function ProfilePage() {
         {/* Onglets */}
         <div className="flex gap-1 bg-stone-100 p-1 rounded-2xl w-fit mb-8">
           {[
-            { id: "reviews", label: "Avis", icon: History },
             { id: "places", label: "Mes Lieux", icon: MapPin },
             { id: "favorites", label: "Favoris", icon: Heart }
           ].map(tab => (
@@ -318,30 +363,98 @@ export default function ProfilePage() {
         </div>
 
         {/* Contenu */}
-        <div>
-          {activeTab === "places" ? (
+        <div className="min-h-[400px]">
+          {activeTab === "places" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {userLocations.map(loc => (
-                <div key={loc.id} className="relative group">
+                <div key={loc.id} className="relative group bg-white rounded-3xl p-1 shadow-sm border border-stone-100">
                   <LocationCard location={loc} />
-                  <button 
-                    onClick={() => handleDeleteLocation(loc.id)}
-                    className="absolute top-4 right-4 p-2.5 bg-red-500 text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:bg-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  
+                  {/* Actions contextuelles */}
+                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-20">
+                    <button 
+                      onClick={() => {
+                        setEditingLocId(loc.id);
+                        setTempDesc(loc.description || "");
+                      }}
+                      className="p-2.5 bg-white text-stone-900 rounded-xl shadow-xl hover:bg-stone-50"
+                      title="Modifier la description"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteLocation(loc.id)}
+                      className="p-2.5 bg-red-500 text-white rounded-xl shadow-xl hover:bg-red-600"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  {/* Formulaire d'édition de description en overlay */}
+                  <AnimatePresence>
+                    {editingLocId === loc.id && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-white/95 z-30 rounded-3xl p-6 flex flex-col"
+                      >
+                        <h4 className="font-bold text-stone-900 mb-4">Modifier la description</h4>
+                        <textarea 
+                          className="flex-1 w-full p-4 rounded-2xl border border-stone-200 focus:ring-2 focus:ring-moss-500 outline-none text-sm resize-none"
+                          value={tempDesc}
+                          onChange={(e) => setTempDesc(e.target.value)}
+                        />
+                        <div className="flex gap-2 mt-4">
+                          <Button 
+                            variant="primary" 
+                            className="flex-1" 
+                            size="sm"
+                            onClick={() => handleUpdateDescription(loc.id)}
+                            loading={uploading}
+                          >
+                            Enregistrer
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setEditingLocId(null)}
+                          >
+                            Annuler
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
               {userLocations.length === 0 && !loadingLocations && (
-                <div className="text-center py-20 col-span-2">
-                   <p className="text-stone-400 font-bold mb-4">Aucun lieu pour le moment.</p>
-                   <Link href="/add-location"><Button variant="secondary">Partager un spot</Button></Link>
+                <div className="text-center py-20 col-span-2 bg-white rounded-3xl border-2 border-dashed border-stone-200">
+                   <p className="text-stone-400 font-bold mb-4">Vous n'avez pas encore partagé de lieu.</p>
+                   <Link href="/add-location"><Button variant="primary">Partager mon premier spot</Button></Link>
                 </div>
               )}
             </div>
-          ) : (
-            <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-stone-200 text-stone-400">
-               Arrive très prochainement... 🚀
+          )}
+
+          {activeTab === "favorites" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {favoriteLocations.map(loc => (
+                <LocationCard key={loc.id} location={loc} />
+              ))}
+              {favoriteLocations.length === 0 && !loadingFavorites && (
+                <div className="text-center py-20 col-span-2 bg-white rounded-3xl border-2 border-dashed border-stone-200">
+                   <p className="text-stone-400 font-bold mb-2">Aucun favori pour le moment.</p>
+                   <p className="text-stone-400 text-sm mb-6">Cliquez sur le cœur d'un lieu pour l'enregistrer ici.</p>
+                   <Link href="/"><Button variant="secondary">Explorer les lieux</Button></Link>
+                </div>
+              )}
+              {loadingFavorites && (
+                <div className="col-span-2 flex justify-center py-20">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-moss-500 border-t-transparent" />
+                </div>
+              )}
             </div>
           )}
         </div>

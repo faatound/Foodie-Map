@@ -19,6 +19,7 @@ export function FeaturedLocations() {
         const { data, error } = await supabase
           .from("locations")
           .select("*, profiles(full_name, username)")
+          .order("rating", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(20); // On en prend plus pour pouvoir filtrer ceux sans photo
 
@@ -27,16 +28,19 @@ export function FeaturedLocations() {
           throw error;
         }
         if (data) {
-          // Filtrage par photo et déduplication par nom
+          // Filtrage par photo, description et déduplication par nom
           const filteredLocations: Location[] = [];
           const seenNames = new Set();
           
           data.forEach((loc: any) => {
-            // Vérifier si une photo existe
+            // 1. Vérifier si une photo existe
             const rawImg = loc.image_url || loc.hero_image || (loc.images && Array.isArray(loc.images) && loc.images.length > 0 ? loc.images[0] : null);
             const hasImage = rawImg && typeof rawImg === 'string' && rawImg.length > 4;
 
-            if (!hasImage) return; // On ignore si pas de photo
+            // 2. Vérifier si une description existe (au moins 10 caractères)
+            const hasDescription = loc.description && loc.description.trim().length >= 10;
+
+            if (!hasImage || !hasDescription) return;
 
             const nameKey = loc.name.toLowerCase().trim();
             if (!seenNames.has(nameKey) && filteredLocations.length < 6) {

@@ -39,6 +39,13 @@ export default function LocationDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [uploadingReview, setUploadingReview] = useState(false);
+  const [reviewData, setReviewData] = useState({
+    rating: 5,
+    rating_food: 5,
+    rating_service: 5,
+    rating_decor: 5,
+    body: ""
+  });
   const reviewFilesRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -48,7 +55,7 @@ export default function LocationDetailPage() {
         // Try Supabase first
         const { data, error } = await supabase
           .from("locations")
-          .select("*, profiles(full_name, username)")
+          .select("*, profiles(full_name, username), reviews(*, profiles(username))")
           .eq("id", id)
           .single();
 
@@ -78,6 +85,55 @@ export default function LocationDetailPage() {
     fetchLocation();
   }, [id]);
 
+  const handleSubmitReview = async () => {
+    if (!user || !location) return;
+    try {
+      setUploadingReview(true);
+      const { error } = await supabase
+        .from("reviews")
+        .insert({
+          location_id: location.id,
+          user_id: user.id,
+          rating: reviewData.rating,
+          rating_food: reviewData.rating_food,
+          rating_service: reviewData.rating_service,
+          rating_decor: reviewData.rating_decor,
+          body: reviewData.body,
+        });
+
+      if (error) throw error;
+
+      alert("Merci ! Votre avis a été publié.");
+      setShowReviewForm(false);
+      setReviewData({ rating: 5, rating_food: 5, rating_service: 5, rating_decor: 5, body: "" });
+      
+      // Optionnel: Mettre à jour localement les avis pour éviter le reload
+      const newReview = {
+        id: Math.random().toString(),
+        location_id: location.id,
+        user_id: user.id,
+        rating: reviewData.rating,
+        rating_food: reviewData.rating_food,
+        rating_service: reviewData.rating_service,
+        rating_decor: reviewData.rating_decor,
+        body: reviewData.body,
+        created_at: new Date().toISOString(),
+        profiles: {
+          username: user.user_metadata?.username || user.email?.split('@')[0] || "Moi"
+        }
+      };
+      
+      setLocation(prev => prev ? {
+        ...prev,
+        reviews: [newReview, ...(prev.reviews || [])]
+      } : null);
+    } catch (err: any) {
+      alert("Erreur lors de la publication : " + err.message);
+    } finally {
+      setUploadingReview(false);
+    }
+  };
+
   const handleReviewPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       if (!event.target.files || event.target.files.length === 0) return;
@@ -90,27 +146,29 @@ export default function LocationDetailPage() {
       const uploadPromises = files.map(file => uploadReviewPhoto(location.id, user.id, file));
       const urls = await Promise.all(uploadPromises);
 
-      const primaryImage = urls[0];
+      // Ne mettre à jour l'image de couverture que si aucune n'existe du tout
+      const hasExistingImages = (location.images && Array.isArray(location.images) && location.images.length > 0) || location.image_url;
+      const primaryImage = hasExistingImages ? (location.image_url || location.images?.[0]) : urls[0];
+      
       const allImages = [...(Array.isArray(location.images) ? location.images : []), ...urls];
 
       const { error: updateError } = await supabase
         .from("locations")
         .update({
-          images: allImages,       // Pour la galerie
-          image_url: primaryImage  // CRUCIAL : Pour l'affichage sur la LocationCard
+          images: allImages,
+          image_url: primaryImage
         })
         .eq("id", location.id);
 
       if (updateError) throw updateError;
 
-      // 2. Mise à jour du state local pour refléter les deux colonnes
       setLocation(prev => prev ? {
         ...prev,
         images: allImages,
         image_url: primaryImage
       } : null);
 
-      alert(`${urls.length} photo(s) ajoutée(s) !`);
+      alert(`${urls.length} photo(s) ajoutée(s) à la galerie !`);
 
     } catch (error: any) {
       alert("Erreur : " + error.message);
@@ -183,12 +241,10 @@ export default function LocationDetailPage() {
               unoptimized
             />
             <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-500" />
-            <div className="absolute bottom-6 left-6 z-10 sm:hidden">
-              <Badge variant="solid" color="rgba(0,0,0,0.5)" className="backdrop-blur-md border-none text-white">Visualiser les photos</Badge>
-            </div>
           </div>
-          {displayImages.slice(1, 4).map((img, i) => (
-            <div key={i} className="relative hidden md:block group overflow-hidden cursor-pointer">
+          
+          {displayImages.slice(1, 5).map((img, i) => (
+            <div key={i} className="relative hidden md:block group overflow-hidden cursor-pointer h-full">
               <Image
                 src={img.startsWith('http') ? img : `/images/${img.replace(/^\/?(images\/)?/, '')}`}
                 alt={`${location.name} photo ${i + 2}`}
@@ -197,6 +253,14 @@ export default function LocationDetailPage() {
                 unoptimized
               />
               <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
+              
+              {/* Overlay pour le "Voir plus" sur la dernière image si plus de 5 photos au total */}
+              {i === 3 && displayImages.length > 5 && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
+                  <p className="text-2xl font-bold">+{displayImages.length - 5}</p>
+                  <p className="text-[10px] uppercase font-bold tracking-widest">Photos</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -229,9 +293,9 @@ export default function LocationDetailPage() {
                     <MapPin size={16} className="text-moss-500" />
                     <span className="font-medium">{location.address}</span>
                   </div>
-                  {location.avg_rating && (
+                  {location.rating && (
                     <div className="flex items-center gap-2 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
-                      <StarRating rating={location.avg_rating} size={15} />
+                      <StarRating rating={location.rating} size={15} />
                       <span className="text-stone-400">({location.reviews?.length || 0} avis)</span>
                       {location.price_range && (
                         <>
@@ -482,15 +546,33 @@ export default function LocationDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Cuisine</label>
-                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                    <StarRating 
+                      rating={reviewData.rating_food} 
+                      interactive 
+                      size={20} 
+                      className="!gap-0" 
+                      onChange={(val) => setReviewData({...reviewData, rating_food: val, rating: Math.round((val + reviewData.rating_service + reviewData.rating_decor)/3)})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Service</label>
-                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                    <StarRating 
+                      rating={reviewData.rating_service} 
+                      interactive 
+                      size={20} 
+                      className="!gap-0" 
+                      onChange={(val) => setReviewData({...reviewData, rating_service: val, rating: Math.round((reviewData.rating_food + val + reviewData.rating_decor)/3)})}
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-stone-500 uppercase tracking-widest block">Décor</label>
-                    <StarRating rating={0} interactive size={20} className="!gap-0" />
+                    <StarRating 
+                      rating={reviewData.rating_decor} 
+                      interactive 
+                      size={20} 
+                      className="!gap-0" 
+                      onChange={(val) => setReviewData({...reviewData, rating_decor: val, rating: Math.round((reviewData.rating_food + reviewData.rating_service + val)/3)})}
+                    />
                   </div>
                 </div>
 
@@ -499,6 +581,8 @@ export default function LocationDetailPage() {
                   <textarea
                     className="input-base min-h-[120px] pt-4"
                     placeholder="Racontez-nous votre visite..."
+                    value={reviewData.body}
+                    onChange={(e) => setReviewData({...reviewData, body: e.target.value})}
                   />
                 </div>
 
@@ -520,7 +604,15 @@ export default function LocationDetailPage() {
                   >
                     {uploadingReview ? "Envoi..." : "Photos"}
                   </Button>
-                  <Button variant="primary" className="flex-2 rounded-2xl px-10" onClick={() => setShowReviewForm(false)}>Publier l'avis</Button>
+                  <Button 
+                    variant="primary" 
+                    className="flex-2 rounded-2xl px-10" 
+                    onClick={handleSubmitReview}
+                    loading={uploadingReview}
+                    disabled={!reviewData.body || uploadingReview}
+                  >
+                    Publier l'avis
+                  </Button>
                 </div>
               </div>
             </motion.div>
