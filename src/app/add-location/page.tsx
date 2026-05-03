@@ -82,6 +82,7 @@ export default function AddLocationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     try {
       setSubmitting(true);
       

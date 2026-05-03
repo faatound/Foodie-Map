@@ -222,6 +222,7 @@ export default function ProfilePage() {
   };
 
   const handleDeleteLocation = async (id: string) => {
+    if (!user) return;
     if (!confirm("Voulez-vous vraiment supprimer ce lieu définitivement ?")) return;
     try {
       const { error, count } = await supabase
