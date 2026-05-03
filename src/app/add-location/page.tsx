@@ -85,6 +85,13 @@ export default function AddLocationPage() {
     try {
       setSubmitting(true);
       
+      // Garantir que le profil existe avant d'insérer le lieu (fix FK constraint)
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || "Foodie",
+        username: user.user_metadata?.username || user.email?.split('@')[0]?.toLowerCase() || "foodie",
+      }, { onConflict: "id" });
+
       const { error } = await supabase.from("locations").insert([
         {
           name: formData.name,
