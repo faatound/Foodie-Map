@@ -35,17 +35,6 @@ export function AuthModal() {
           password,
         });
         if (err) throw err;
-
-        // Créer le profil s'il n'existe pas encore (pour les anciens utilisateurs)
-        if (data.user) {
-          const meta = data.user.user_metadata;
-          await supabase.from("profiles").upsert({
-            id: data.user.id,
-            full_name: meta?.full_name || email.split("@")[0],
-            username: meta?.username || email.split("@")[0].toLowerCase().replace(/\s+/g, '_'),
-          }, { onConflict: "id" });
-        }
-
         setSession(data.session);
         closeAuthModal();
       } else {
@@ -53,9 +42,9 @@ export function AuthModal() {
           email,
           password,
           options: {
-            data: { 
+            data: {
               full_name: name,
-              username: username.replace(/^@/, '') 
+              username: username.replace(/^@/, '')
             },
           },
         });
