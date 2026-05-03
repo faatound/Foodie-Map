@@ -52,31 +52,39 @@ export default function LocationDetailPage() {
     const fetchLocation = async () => {
       try {
         setLoading(true);
-        // Try Supabase first
+        
+        // Requête simple sans jointure profiles (évite l'erreur 400)
         const { data, error } = await supabase
           .from("locations")
-          .select("*, profiles(full_name, username), reviews(*, profiles(username))")
+          .select("*")
           .eq("id", id)
           .single();
 
         if (data) {
+          // Récupérer le profil de l'auteur séparément via user_id
+          const creatorId = data.user_id || data.created_by;
+          if (creatorId) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name, username, avatar_url")
+              .eq("id", creatorId)
+              .single();
+            if (profile) data.profiles = profile;
+          }
           setLocation(data as Location);
           return;
         }
 
-        // Fallback to MOCK_LOCATIONS if not found in DB
+        // Fallback aux données locales (lieux mock)
         const { MOCK_LOCATIONS } = await import("@/types");
         const mockLoc = MOCK_LOCATIONS.find((l) => l.id === id);
-        if (mockLoc) {
-          setLocation(mockLoc);
-        }
+        if (mockLoc) setLocation(mockLoc);
+
       } catch (error) {
-        console.warn("Lieu non trouvé dans Supabase, tentative avec les mocks...");
+        console.warn("Erreur fetch lieu:", error);
         const { MOCK_LOCATIONS } = await import("@/types");
         const mockLoc = MOCK_LOCATIONS.find((l) => l.id === id);
-        if (mockLoc) {
-          setLocation(mockLoc);
-        }
+        if (mockLoc) setLocation(mockLoc);
       } finally {
         setLoading(false);
       }

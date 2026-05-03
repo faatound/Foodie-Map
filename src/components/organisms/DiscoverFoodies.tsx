@@ -100,8 +100,8 @@ export function DiscoverFoodies() {
           </p>
         </motion.div>
 
-        {/* Scroll horizontal sur mobile, grille sur desktop */}
-        <div className="flex overflow-x-auto pb-8 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:justify-center gap-6 sm:gap-10 snap-x snap-mandatory hide-scrollbar">
+        {/* Grille responsive : 3 colonnes sur mobile, plus sur desktop */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 sm:gap-10 justify-items-center">
           {foodies.map((foodie, i) => {
             const MotionLink = motion.create(Link);
             return (
@@ -112,7 +112,7 @@ export function DiscoverFoodies() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.4 }}
-                className="flex flex-col items-center gap-3 w-28 shrink-0 snap-center cursor-pointer group"
+                className="flex flex-col items-center gap-3 w-full cursor-pointer group"
               >
                 <div className="relative">
                   <Avatar
