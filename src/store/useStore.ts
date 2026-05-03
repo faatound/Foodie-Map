@@ -27,6 +27,7 @@ interface SavedState {
   savedIds: Set<string>;
   toggleSaved: (locationId: string) => void;
   isSaved: (locationId: string) => boolean;
+  loadFavorites: (userId: string) => Promise<void>;
 }
 
 type Store = AuthState & UIState & SavedState;
