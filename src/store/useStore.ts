@@ -36,12 +36,21 @@ export const useStore = create<Store>((set, get) => ({
   user: null,
   session: null,
   loading: true,
-  setUser: (user) => set({ user }),
-  setSession: (session) => set({ session, user: session?.user ?? null }),
+  setUser: (user) => {
+    set({ user });
+    if (user) get().loadFavorites(user.id);
+    else set({ savedIds: new Set() });
+  },
+  setSession: (session) => {
+    const user = session?.user ?? null;
+    set({ session, user });
+    if (user) get().loadFavorites(user.id);
+    else set({ savedIds: new Set() });
+  },
   setLoading: (loading) => set({ loading }),
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, session: null });
+    set({ user: null, session: null, savedIds: new Set() });
   },
 
   // ── UI ────────────────────────────────────────────────
@@ -99,15 +108,3 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 }));
-
-// Auto-load favorites when user changes
-useStore.subscribe(
-  (state) => state.user,
-  (user) => {
-    if (user) {
-      useStore.getState().loadFavorites(user.id);
-    } else {
-      useStore.getState().set({ savedIds: new Set() });
-    }
-  }
-);
