@@ -49,11 +49,23 @@ export function AuthModal() {
           },
         });
         if (err) throw err;
+
+        // Créer immédiatement le profil dans public.profiles
+        // (nécessaire pour la contrainte FK lors de l'ajout de lieux)
+        if (data.user) {
+          await supabase.from("profiles").upsert({
+            id: data.user.id,
+            full_name: name,
+            username: username.replace(/^@/, '').toLowerCase() || name.toLowerCase().replace(/\s+/g, '_'),
+            avatar_url: null,
+          }, { onConflict: "id" });
+        }
+
         if (data.session) {
           setSession(data.session);
           closeAuthModal();
         } else {
-          setSuccess("Check your email to confirm your account!");
+          setSuccess("Vérifiez vos emails pour confirmer votre compte !");
         }
       }
     } catch (err: unknown) {
