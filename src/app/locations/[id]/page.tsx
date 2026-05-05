@@ -71,6 +71,16 @@ export default function LocationDetailPage() {
               .single();
             if (profile) data.profiles = profile;
           }
+
+          // Récupérer les avis séparément
+          const { data: reviews } = await supabase
+            .from("reviews")
+            .select("*, profiles(username)")
+            .eq("location_id", id)
+            .order("created_at", { ascending: false });
+          
+          if (reviews) data.reviews = reviews;
+
           setLocation(data as Location);
           return;
         }
@@ -233,9 +243,9 @@ export default function LocationDetailPage() {
           Retour aux {category?.label || "catégories"}
         </Link>
 
-        {/* Gallery Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-[2.5rem] overflow-hidden h-[350px] sm:h-[450px] md:h-[500px] shadow-card">
-          <div className="md:col-span-2 md:row-span-2 relative group cursor-pointer bg-stone-100 flex items-center justify-center">
+        {/* Gallery Grid / Mobile Scroll */}
+        <div className="flex overflow-x-auto md:grid md:grid-cols-4 gap-3 no-scrollbar pb-4 md:pb-0 snap-x">
+          <div className="flex-shrink-0 w-[85vw] md:w-auto md:col-span-2 md:row-span-2 relative group cursor-pointer bg-stone-100 rounded-[2.5rem] overflow-hidden h-[350px] sm:h-[450px] md:h-[500px] snap-center">
             <Image
               src={
                 (displayImages[0] && typeof displayImages[0] === 'string')
@@ -251,8 +261,11 @@ export default function LocationDetailPage() {
             <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-500" />
           </div>
           
-          {displayImages.slice(1, 5).map((img, i) => (
-            <div key={i} className="relative hidden md:block group overflow-hidden cursor-pointer h-full">
+          {displayImages.slice(1).map((img, i) => (
+            <div 
+              key={i} 
+              className={`flex-shrink-0 w-[70vw] md:w-auto relative group overflow-hidden cursor-pointer rounded-[2.5rem] md:rounded-none h-[350px] sm:h-[450px] md:h-full snap-center ${i >= 4 ? 'md:hidden' : 'md:block'}`}
+            >
               <Image
                 src={img.startsWith('http') ? img : `/images/${img.replace(/^\/?(images\/)?/, '')}`}
                 alt={`${location.name} photo ${i + 2}`}
@@ -262,9 +275,9 @@ export default function LocationDetailPage() {
               />
               <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
               
-              {/* Overlay pour le "Voir plus" sur la dernière image si plus de 5 photos au total */}
+              {/* Overlay pour le "Voir plus" sur la 4ème image desktop si plus de 5 photos */}
               {i === 3 && displayImages.length > 5 && (
-                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
+                <div className="absolute inset-0 bg-black/50 hidden md:flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
                   <p className="text-2xl font-bold">+{displayImages.length - 5}</p>
                   <p className="text-[10px] uppercase font-bold tracking-widest">Photos</p>
                 </div>
