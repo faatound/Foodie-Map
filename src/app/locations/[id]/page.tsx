@@ -19,6 +19,8 @@ import {
   Layout,
   MessageSquare,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
@@ -46,6 +48,7 @@ export default function LocationDetailPage() {
     rating_decor: 5,
     body: ""
   });
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const reviewFilesRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -245,7 +248,10 @@ export default function LocationDetailPage() {
 
         {/* Gallery Grid / Mobile Scroll */}
         <div className="flex overflow-x-auto md:grid md:grid-cols-4 gap-3 no-scrollbar pb-4 md:pb-0 snap-x">
-          <div className="flex-shrink-0 w-[85vw] md:w-auto md:col-span-2 md:row-span-2 relative group cursor-pointer bg-stone-100 rounded-[2.5rem] overflow-hidden h-[350px] sm:h-[450px] md:h-[500px] snap-center">
+          <div 
+            className="flex-shrink-0 w-[85vw] md:w-auto md:col-span-2 md:row-span-2 relative group cursor-pointer bg-stone-100 rounded-[2.5rem] overflow-hidden h-[350px] sm:h-[450px] md:h-[500px] snap-center"
+            onClick={() => displayImages.length > 0 && setLightboxIndex(0)}
+          >
             <Image
               src={
                 (displayImages[0] && typeof displayImages[0] === 'string')
@@ -264,6 +270,7 @@ export default function LocationDetailPage() {
           {displayImages.slice(1).map((img, i) => (
             <div 
               key={i} 
+              onClick={() => setLightboxIndex(i + 1)}
               className={`flex-shrink-0 w-[70vw] md:w-auto relative group overflow-hidden cursor-pointer rounded-[2.5rem] md:rounded-none h-[350px] sm:h-[450px] md:h-full snap-center ${i >= 4 ? 'md:hidden' : 'md:block'}`}
             >
               <Image
@@ -347,7 +354,32 @@ export default function LocationDetailPage() {
                 >
                   {saved ? "Enregistré" : "Enregistrer"}
                 </Button>
-                <Button variant="secondary" size="md" className="rounded-2xl h-12" icon={<Share2 size={18} />}>
+                <Button 
+                  variant="secondary" 
+                  size="md" 
+                  className="rounded-2xl h-12" 
+                  icon={<Share2 size={18} />}
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: `Découvrez ${location.name}`,
+                          text: location.description || `Retrouvez ${location.name} sur Foodie Map !`,
+                          url: window.location.href,
+                        });
+                      } catch (err) {
+                        console.log("Partage annulé ou erreur:", err);
+                      }
+                    } else {
+                      try {
+                        await navigator.clipboard.writeText(window.location.href);
+                        alert("Lien copié dans le presse-papier !");
+                      } catch (err) {
+                        console.error("Erreur de copie:", err);
+                      }
+                    }
+                  }}
+                >
                   Partager
                 </Button>
                 <Button variant="secondary" size="md" className="rounded-2xl h-12" icon={<ExternalLink size={18} />}>
@@ -503,25 +535,27 @@ export default function LocationDetailPage() {
                   })()}
                 </div>
 
-                <div className="flex gap-3">
-                  <input
-                    type="file"
-                    id="sidebar-photo-upload"
-                    onChange={handleReviewPhotoUpload}
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                  />
-                  <Button
-                    variant="primary"
-                    className="w-full h-12 rounded-2xl"
-                    icon={uploadingReview ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Camera size={18} />}
-                    onClick={() => document.getElementById('sidebar-photo-upload')?.click()}
-                    disabled={uploadingReview}
-                  >
-                    {uploadingReview ? "Envoi..." : "Ajouter des photos"}
-                  </Button>
-                </div>
+                {user && (location.user_id === user.id || location.created_by === user.id) && (
+                  <div className="flex gap-3">
+                    <input
+                      type="file"
+                      id="sidebar-photo-upload"
+                      onChange={handleReviewPhotoUpload}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                    />
+                    <Button
+                      variant="primary"
+                      className="w-full h-12 rounded-2xl"
+                      icon={uploadingReview ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Camera size={18} />}
+                      onClick={() => document.getElementById('sidebar-photo-upload')?.click()}
+                      disabled={uploadingReview}
+                    >
+                      {uploadingReview ? "Envoi..." : "Ajouter des photos"}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Map Preview */}
@@ -638,6 +672,76 @@ export default function LocationDetailPage() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxIndex !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center touch-none"
+          >
+            <button
+              onClick={() => setLightboxIndex(null)}
+              className="absolute top-6 right-6 p-2 text-white/70 hover:text-white bg-black/50 rounded-full z-50 transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            {displayImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(prev => (prev === 0 ? displayImages.length - 1 : prev! - 1));
+                  }}
+                  className="absolute left-4 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full z-50 transition-colors"
+                >
+                  <ChevronLeft size={32} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(prev => (prev === displayImages.length - 1 ? 0 : prev! + 1));
+                  }}
+                  className="absolute right-4 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full z-50 transition-colors"
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+
+            <div className="relative w-full h-full max-w-5xl max-h-[80vh] flex items-center justify-center p-4">
+              <Image
+                src={displayImages[lightboxIndex].startsWith('http') ? displayImages[lightboxIndex] : `/images/${displayImages[lightboxIndex].replace(/^\/?(images\/)?/, '')}`}
+                alt={`${location.name} photo ${lightboxIndex + 1}`}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+            
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto no-scrollbar">
+              {displayImages.map((img, idx) => (
+                <button 
+                  key={idx} 
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
+                  className={`relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${idx === lightboxIndex ? 'border-white scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                >
+                   <Image
+                    src={img.startsWith('http') ? img : `/images/${img.replace(/^\/?(images\/)?/, '')}`}
+                    alt={`Thumb ${idx}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </button>
+              ))}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

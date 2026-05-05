@@ -47,7 +47,7 @@ export function Avatar({
 
   return (
     <div
-      className={`${sizeMap[size]} rounded-full bg-gradient-to-br from-moss-400 to-moss-600 text-white flex items-center justify-center font-semibold ring-2 ring-white shadow-soft ${className}`}
+      className={`${sizeMap[size]} rounded-full bg-gradient-to-br from-stone-300 to-stone-400 text-white flex items-center justify-center font-semibold ring-2 ring-white shadow-soft ${className}`}
       role="img"
       aria-label={alt}
     >

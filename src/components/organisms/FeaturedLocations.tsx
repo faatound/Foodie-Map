@@ -7,7 +7,7 @@ import Link from "next/link";
 import { LocationCard } from "@/components/molecules/LocationCard";
 import { Button } from "@/components/atoms/Button";
 import { supabase } from "@/lib/supabase";
-import { Location } from "@/types";
+import { Location, MOCK_LOCATIONS } from "@/types";
 
 export function FeaturedLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -16,12 +16,66 @@ export function FeaturedLocations() {
   useEffect(() => {
     const fetchLocations = async () => {
       try {
-        const { data, error } = await supabase
-          .from("locations")
-          .select("*")
-          .order("rating", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20); // On en prend plus pour pouvoir filtrer ceux sans photo
+        // 1. Trouver le profil de faa
+        const { data: faaProfiles } = await supabase
+          .from("profiles")
+          .select("id")
+          .or("full_name.ilike.%faa%,username.ilike.%faa%")
+          .limit(1);
+
+        let faaFavIds: string[] = [];
+        if (faaProfiles && faaProfiles.length > 0) {
+          const { data: favs } = await supabase
+            .from("favorites")
+            .select("location_id")
+            .eq("user_id", faaProfiles[0].id);
+
+          if (favs) {
+            faaFavIds = favs.map((f: any) => f.location_id);
+          }
+        }
+
+        let query = supabase.from("locations").select("*");
+
+        if (faaFavIds.length > 0) {
+          query = query.in("id", faaFavIds);
+        } else {
+          query = query.order("rating", { ascending: false }).order("created_at", { ascending: false }).limit(20);
+        }
+
+        const { data: dbData, error } = await query;
+        let data: any[] = dbData ? [...dbData] : [];
+
+        if (data.length > 0) {
+          const userIds = Array.from(new Set(data.map(l => l.user_id || l.created_by).filter(Boolean)));
+          if (userIds.length > 0) {
+            const { data: profilesData } = await supabase.from("profiles").select("id, full_name, username").in("id", userIds);
+            if (profilesData) {
+              const profileMap = new Map(profilesData.map(p => [p.id, p]));
+              data.forEach(loc => {
+                const uid = loc.user_id || loc.created_by;
+                if (uid && profileMap.has(uid)) {
+                  loc.profiles = profileMap.get(uid);
+                }
+              });
+            }
+          }
+        }
+
+        // Pour s'assurer que Meraki (8) et d'autres favoris locaux apparaissent toujours,
+        // nous les injectons par défaut car les MOCK_LOCATIONS ne peuvent pas être 
+        // sauvegardés dans la base de données (erreur de clé étrangère).
+        const defaultMockFavs = ["8", "1", "15"]; // Meraki, Phare, Oasis
+        const allFavIdsToFetch = Array.from(new Set([...faaFavIds, ...defaultMockFavs]));
+        
+        const foundIds = new Set(data.map(l => String(l.id)));
+        const missingIds = allFavIdsToFetch.filter(id => !foundIds.has(String(id)));
+        
+        if (missingIds.length > 0) {
+          const mockFavs = MOCK_LOCATIONS.filter(m => missingIds.includes(String(m.id)));
+          // On met les favoris en premier pour garantir qu'ils s'affichent
+          data = [...mockFavs, ...data];
+        }
 
         if (error) {
           console.error("Erreur Supabase détaillée:", error.message, error.details, error.hint);
@@ -31,7 +85,7 @@ export function FeaturedLocations() {
           // Filtrage par photo, description et déduplication par nom
           const filteredLocations: Location[] = [];
           const seenNames = new Set();
-          
+
           data.forEach((loc: any) => {
             // 1. Vérifier si une photo existe
             const rawImg = loc.image_url || loc.hero_image || (loc.images && Array.isArray(loc.images) && loc.images.length > 0 ? loc.images[0] : null);
@@ -48,7 +102,7 @@ export function FeaturedLocations() {
               filteredLocations.push(loc as Location);
             }
           });
-          
+
           setLocations(filteredLocations);
         }
       } catch (err: any) {

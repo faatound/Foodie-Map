@@ -78,18 +78,22 @@ export const useStore = create<Store>((set, get) => ({
     
     if (isCurrentlySaved) {
       next.delete(locationId);
-      // Persist to Supabase
-      await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('location_id', locationId);
+      // Persist to Supabase only if it's a UUID (real DB location)
+      if (locationId.length > 10) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('location_id', locationId);
+      }
     } else {
       next.add(locationId);
-      // Persist to Supabase
-      await supabase
-        .from('favorites')
-        .insert({ user_id: user.id, location_id: locationId });
+      // Persist to Supabase only if it's a UUID
+      if (locationId.length > 10) {
+        await supabase
+          .from('favorites')
+          .insert({ user_id: user.id, location_id: locationId });
+      }
     }
     
     set({ savedIds: next });

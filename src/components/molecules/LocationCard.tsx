@@ -38,7 +38,7 @@ export function LocationCard({
         id={`location-${location.id}`}
       >
         {/* Image */}
-        <div className="relative aspect-[16/10] overflow-hidden bg-stone-100 flex-shrink-0">
+        <div className="relative aspect-[4/3] overflow-hidden bg-stone-100 flex-shrink-0">
           {(() => {
             // 1. Vérifie si une image existe dans la DB (plusieurs sources possibles)
             let rawImg = location.image_url || location.hero_image || (location.images && Array.isArray(location.images) && location.images.length > 0 ? location.images[0] : null);

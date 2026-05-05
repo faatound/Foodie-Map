@@ -125,6 +125,7 @@ export default function ProfilePage() {
     }
   }, [user, activeTab, savedIds]);
 
+
   const handleUpdateDescription = async (id: string) => {
     try {
       setUploading(true);
@@ -351,7 +352,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Onglets */}
-        <div className="flex gap-1 bg-stone-100 p-1 rounded-2xl w-fit mb-8">
+        <div className="flex gap-1 bg-stone-100 p-1 rounded-2xl w-fit mb-8 overflow-x-auto no-scrollbar max-w-full">
           {[
             { id: "places", label: "Mes Lieux", icon: MapPin },
             { id: "favorites", label: "Favoris", icon: Heart }
@@ -359,7 +360,7 @@ export default function ProfilePage() {
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id as TabId)}
-              className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === tab.id ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}
+              className={`flex-shrink-0 px-4 sm:px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === tab.id ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"}`}
             >
               <tab.icon size={14} />
               {tab.label}
@@ -462,6 +463,7 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+
         </div>
       </div>
 
