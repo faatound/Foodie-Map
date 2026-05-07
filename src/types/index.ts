@@ -11,6 +11,7 @@ export interface Location {
   lat: number | null;
   lng: number | null;
   created_by: string | null;
+  user_id?: string | null;
   rating: number | null;
   hero_image: string | null;
   image_url?: string | null; // Support pour la nouvelle colonne Supabase
